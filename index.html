@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jadwal Kerja Harian – Backup & Export</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ===== Global ===== */
+* { box-sizing: border-box; user-select: none; }
+body {
+  margin: 0;
+  font-family: 'Roboto', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #e0f7fa;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 100vh;
+}
+.app {
+  width: 100%;
+  max-width: 600px;
+  padding: 15px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* ===== Header ===== */
+.header { text-align: center; }
+h1 { font-size: 28px; font-weight: 700; letter-spacing: 0.5px; color: #0d47a1; margin: 0; }
+h2 { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: #0d47a1; }
+p, label { font-size: 14px; font-weight: 400; color: #546e7a; }
+
+/* ===== Card ===== */
+.card {
+  background: rgba(255,255,255,0.95);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* ===== Inputs ===== */
+input, select, button {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #b2dfdb;
+  font-size: 14px;
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: #26a69a;
+  box-shadow: 0 0 0 2px rgba(38,166,154,0.3);
+}
+
+/* ===== Buttons ===== */
+button {
+  border: none;
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+  color: white;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-top: 5px;
+}
+button:active { transform: scale(0.97); }
+.btnMasuk { background: #4caf50; }
+.btnTidakMasuk { background: #f44336; }
+.btnLibur { background: #ff9800; }
+.btnModeHapus { background: #00897b; }
+.btnBatal { background: #9e9e9e; }
+.btnEkspor { background: #1976d2; }
+.btnImpor { background: #7b1fa2; }
+
+/* ===== Table ===== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  margin-top: 10px;
+}
+th, td { border: 1px solid #b2dfdb; padding: 6px; text-align: center; }
+th { background: #80deea; color: #004d40; font-weight: 600; letter-spacing: 0.3px; }
+td { font-weight: 400; color: #263238; }
+.statusMasuk { background: #c8e6c9; }
+.statusTidak { background: #ffcdd2; }
+.statusLibur { background: #ffe0b2; }
+.checkboxCol { display: none; }
+
+/* ===== Modal ===== */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  padding: 15px;
+  max-width: 90%;
+  max-height: 80%;
+  overflow: auto;
+}
+.modal-header { font-weight: bold; font-size: 16px; margin-bottom: 10px; }
+.modal-close { float: right; cursor: pointer; color: #00796b; font-weight: bold; }
+
+/* ===== Summary & Footer ===== */
+.summary { font-size: 14px; font-weight: 600; color: #0d47a1; }
+.footer {
+  font-size: 12px;
+  color: #78909c;
+  text-align: center;
+  margin-top: auto;
+  padding-top: 20px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <h1>Jadwal Kerja Harian</h1>
+    <p>Pencatatan Kehadiran Shift & Backup</p>
+  </div>
+
+  <!-- Input Card -->
+  <div class="card">
+    <input type="date" id="tglInput">
+    <select id="shiftInput">
+      <option value="Shift 1 (00:00-08:00)">Shift 1 (00:00-08:00)</option>
+      <option value="Shift 2 (08:00-16:00)">Shift 2 (08:00-16:00)</option>
+      <option value="Shift 3 (16:00-00:00)">Shift 3 (16:00-00:00)</option>
+      <option value="Day Off / No Planned">Day Off / No Planned</option>
+    </select>
+    <div style="display:flex; gap:10px; margin-top:8px;">
+      <button class="btnMasuk" onclick="addRecord('Masuk')">Masuk</button>
+      <button class="btnTidakMasuk" onclick="addRecord('Tidak Masuk')">Tidak Masuk</button>
+      <button class="btnLibur" onclick="addRecord('Libur')">Libur</button>
+    </div>
+  </div>
+
+  <!-- Table Card -->
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="checkboxCol"></th>
+          <th>Tanggal</th>
+          <th>Shift / Jam</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div style="display:flex; gap:10px; flex-wrap: wrap; margin-top:10px;">
+      <button id="btnModeHapus" class="btnModeHapus">Pilih & Hapus</button>
+      <button id="btnBatal" class="btnBatal" style="display:none;">Batal</button>
+      <button id="btnEkspor" class="btnEkspor" onclick="exportData()">💾 Ekspor Backup</button>
+      <input type="file" id="fileImport" style="display:none;" accept=".json">
+      <button id="btnImpor" class="btnImpor" onclick="document.getElementById('fileImport').click()">📂 Impor Backup</button>
+    </div>
+
+    <div class="summary" id="summaryText"></div>
+    <button onclick="openModalArsip()" style="margin-top:10px;background:#00796b;">📂 Lihat Arsip 15 Hari</button>
+
+    <div class="footer">
+      © 2026 Zulfahmi Afnula. All Rights Reserved.
+    </div>
+  </div>
+</div>
+
+<!-- Modal Arsip -->
+<div class="modal" id="modalArsip">
+  <div class="modal-content">
+    <span class="modal-close" onclick="closeModalArsip()">×</span>
+    <div class="modal-header">Arsip 15 Hari</div>
+    <div id="arsipContent"></div>
+  </div>
+</div>
+
+<script>
+/* ===== Inisialisasi ===== */
+const tglInput = document.getElementById("tglInput");
+const shiftInput = document.getElementById("shiftInput");
+const tableBody = document.getElementById("tableBody");
+const btnModeHapus = document.getElementById("btnModeHapus");
+const btnBatal = document.getElementById("btnBatal");
+const summaryText = document.getElementById("summaryText");
+const modalArsip = document.getElementById("modalArsip");
+const arsipContent = document.getElementById("arsipContent");
+const fileImport = document.getElementById("fileImport");
+
+const storageKey = "shiftRecords";
+const arsipKey = "arsipShift15Hari";
+
+let records = JSON.parse(localStorage.getItem(storageKey)) || [];
+let arsipRecords = JSON.parse(localStorage.getItem(arsipKey)) || {};
+let modeHapus = false;
+
+/* ===== Helper Tanggal ===== */
+function getLocalDateStr(){
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth()+1).padStart(2,'0');
+  const d = String(now.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+tglInput.value = getLocalDateStr();
+tglInput.max = getLocalDateStr();
+
+/* ===== Helper Periode ===== */
+function getPeriodKey(dateStr){
+  let d = new Date(dateStr);
+  let day = d.getDate();
+  let month = String(d.getMonth()+1).padStart(2,'0');
+  let year = d.getFullYear();
+  return day <= 15 ? `${year}-${month}-1_15` : `${year}-${month}-16_end`;
+}
+function getLastDateOfMonth(dateStr){
+  let d = new Date(dateStr);
+  return new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+}
+
+/* ===== Arsip Otomatis ===== */
+function purgeOldArchives(){
+  const now = Date.now();
+  Object.keys(arsipRecords).forEach(k=>{
+    if(arsipRecords[k].timestamp && now - arsipRecords[k].timestamp > 60*24*60*60*1000){
+      delete arsipRecords[k];
+    }
+  });
+  localStorage.setItem(arsipKey, JSON.stringify(arsipRecords));
+}
+function checkFreeze(newDate){
+  if(records.length<2) return;
+  const prevDate = records[records.length-2].tgl;
+  const prevDay = new Date(prevDate).getDate();
+  const newDay = new Date(newDate).getDate();
+  const lastDay = getLastDateOfMonth(prevDate);
+  let key = null;
+  if(prevDay===15 && newDay===16) key=getPeriodKey(prevDate);
+  if(prevDay===lastDay && newDay===1) key=getPeriodKey(prevDate);
+  if(key && !arsipRecords[key]){
+    let data = records.filter(r=>getPeriodKey(r.tgl)===key);
+    let masuk = data.filter(r=>r.status==="Masuk").length;
+    arsipRecords[key]={records:JSON.parse(JSON.stringify(data)), gaji:masuk*200000, timestamp: Date.now()};
+    localStorage.setItem(arsipKey, JSON.stringify(arsipRecords));
+    purgeOldArchives();
+  }
+}
+
+/* ===== Tambah Record ===== */
+function addRecord(status){
+  const tgl = tglInput.value;
+  const shift = shiftInput.value;
+  if(!tgl) return alert("Tanggal belum dipilih!");
+  if(tgl>tglInput.max) return alert("Tidak bisa pilih tanggal di masa depan!");
+  if(records.some(r=>r.tgl===tgl && r.shift===shift)) return alert("Shift ini sudah dicatat!");
+  records.push({tgl, shift, status});
+  records.sort((a,b)=>new Date(a.tgl)-new Date(b.tgl));
+  localStorage.setItem(storageKey, JSON.stringify(records));
+  checkFreeze(tgl);
+  renderTable();
+}
+
+/* ===== Render Table ===== */
+function renderTable(){
+  tableBody.innerHTML="";
+  let m=0,t=0,l=0;
+  records.forEach((r,i)=>{
+    const tr = document.createElement("tr");
+
+    // Checkbox
+    const tdCb = document.createElement("td");
+    tdCb.className="checkboxCol";
+    if(modeHapus) tdCb.style.display="table-cell";
+    const cb = document.createElement("input");
+    cb.type="checkbox";
+    cb.value = i;
+    tdCb.appendChild(cb);
+    tr.appendChild(tdCb);
+
+    // Status
+    const cls = r.status==="Masuk"?"statusMasuk":r.status==="Tidak Masuk"?"statusTidak":"statusLibur";
+    if(r.status==="Masuk") m++; else if(r.status==="Tidak Masuk") t++; else l++;
+    tr.innerHTML += `<td>${r.tgl}</td><td>${r.shift}</td><td class="${cls}">${r.status}</td>`;
+    tableBody.appendChild(tr);
+  });
+  summaryText.textContent=`Periode ini → Masuk: ${m} | Tidak Masuk: ${t} | Libur: ${l}`;
+}
+
+/* ===== Hapus Record ===== */
+btnModeHapus.onclick = function(){
+  enterDeleteMode();
+};
+btnBatal.onclick = cancelHapus;
+function enterDeleteMode(){
+  modeHapus=true;
+  document.querySelectorAll(".checkboxCol").forEach(c=>c.style.display="table-cell");
+  btnBatal.style.display="inline-block";
+  btnModeHapus.textContent="Hapus Terpilih";
+  btnModeHapus.onclick = hapusTerpilih;
+}
+function hapusTerpilih(){
+  const checked = document.querySelectorAll(".checkboxCol input:checked");
+  if(!checked.length) return alert("Pilih data dulu!");
+  if(!confirm("PERINGATAN! Yakin hapus permanen data terpilih?")) return;
+  const idx = [...checked].map(c=>parseInt(c.value));
+  records = records.filter((_,i)=>!idx.includes(i));
+  localStorage.setItem(storageKey, JSON.stringify(records));
+  cancelHapus();
+  renderTable();
+}
+function cancelHapus(){
+  modeHapus=false;
+  document.querySelectorAll(".checkboxCol").forEach(c=>c.style.display="none");
+  btnBatal.style.display="none";
+  btnModeHapus.textContent="Pilih & Hapus";
+  btnModeHapus.onclick = enterDeleteMode;
+}
+
+/* ===== Modal Arsip ===== */
+function openModalArsip(){
+  modalArsip.style.display="flex";
+  arsipContent.innerHTML="";
+  const keys = Object.keys(arsipRecords).sort();
+  if(!keys.length){ arsipContent.textContent="Belum ada arsip."; return; }
+  keys.forEach(k=>{
+    const data = arsipRecords[k];
+    let tbl = `<table style="width:100%;border-collapse:collapse;margin-bottom:5px;">
+                <thead><tr><th>Tanggal</th><th>Shift / Jam</th><th>Status</th></tr></thead>
+                <tbody>`;
+    data.records.forEach(r=>{
+      const c=r.status==="Masuk"?"statusMasuk":r.status==="Tidak Masuk"?"statusTidak":"statusLibur";
+      tbl+=`<tr><td>${r.tgl}</td><td>${r.shift}</td><td class="${c}">${r.status}</td></tr>`;
+    });
+    tbl+="</tbody></table>";
+    const div=document.createElement("div");
+    div.style.marginBottom="10px";
+    div.innerHTML = `<b>Periode ${k.replace(/_/g,' ')}</b><br>${tbl}<b>Gaji: Rp ${data.gaji.toLocaleString()}</b>`;
+    arsipContent.appendChild(div);
+  });
+}
+function closeModalArsip(){ modalArsip.style.display="none"; }
+
+/* ===== Export / Import ===== */
+function exportData(){
+  if(!records.length) return alert("Tidak ada data untuk diekspor!");
+  const blob = new Blob([JSON.stringify(records, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `Backup_Jadwal_${getLocalDateStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+fileImport.onchange = function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev){
+    try{
+      const data = JSON.parse(ev.target.result);
+      if(!Array.isArray(data)) throw "Format salah";
+      records = data;
+      localStorage.setItem(storageKey, JSON.stringify(records));
+      renderTable();
+      alert("Backup berhasil diimpor!");
+    }catch(err){
+      alert("Gagal mengimpor backup: "+err);
+    }
+  };
+  reader.readAsText(file);
+};
+
+/* ===== Auto Sync Tanggal ===== */
+function autoSyncMidnight(){
+  const now = new Date();
+  const msToMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1,0,0,0,0) - now;
+  setTimeout(()=>{
+    tglInput.value = getLocalDateStr();
+    tglInput.max = getLocalDateStr();
+    autoSyncMidnight();
+  }, msToMidnight);
+}
+autoSyncMidnight();
+document.addEventListener("visibilitychange", ()=>{
+  if(!document.hidden){
+    const nowStr=getLocalDateStr();
+    tglInput.value=nowStr; tglInput.max=nowStr;
+  }
+});
+setInterval(()=>{
+  const nowStr=getLocalDateStr();
+  if(tglInput.value!==nowStr){ tglInput.value=nowStr; tglInput.max=nowStr; }
+}, 30000);
+
+/* ===== Ingat Shift Terakhir ===== */
+window.addEventListener("load", ()=>{
+  const savedShift = localStorage.getItem("lastShift");
+  if(savedShift) shiftInput.value = savedShift;
+});
+shiftInput.addEventListener("change", ()=>{
+  localStorage.setItem("lastShift", shiftInput.value);
+});
+
+/* ===== Render Awal ===== */
+renderTable();
+purgeOldArchives();
+</script>
+</body>
+</html>
